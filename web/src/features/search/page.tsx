@@ -132,9 +132,20 @@ function SearchResults({
   onPageChange: (page: number) => void
 }) {
   const movies = useSearchMovies({ query: keyword, page, limit: DISCOVER_PAGE_SIZE })
+  // 按发行日期从新到旧排序 (搜女优时最新作品排前面; 无日期的放最后)
+  const sorted = movies.data
+    ? [...movies.data].sort((a, b) => {
+        const da = a.release_date || ''
+        const db = b.release_date || ''
+        if (da === db) return 0
+        if (!da) return 1
+        if (!db) return -1
+        return db.localeCompare(da)
+      })
+    : movies.data
   return (
     <DiscoverResults
-      movies={movies.data}
+      movies={sorted}
       loading={movies.isPending}
       fetching={movies.isFetching}
       error={movies.isError}
@@ -145,3 +156,4 @@ function SearchResults({
     />
   )
 }
+
