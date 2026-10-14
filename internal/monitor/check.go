@@ -162,6 +162,18 @@ func (service *Service) checkActor(ctx context.Context, record *ent.Subscription
 	if err != nil {
 		return service.deferCheck(ctx, record, now, domain.E(domain.KindUpstream, "查询演员新作失败："+domain.PublicMessage(err), err))
 	}
+	// Backfill avatar for subscriptions created before avatar support:
+	// browse responses omit actors, so fetch one movie detail once.
+	if record.Cover == "" && len(movies) > 0 {
+		if detail, err := service.discover.CatalogueDetail(ctx, movies[0].ID); err == nil {
+			for _, actor := range detail.Movie.Actors {
+				if actor.ID == record.TargetID && actor.Avatar != "" {
+					_ = record.Update().SetCover(actor.Avatar).Exec(ctx)
+					break
+				}
+			}
+		}
+	}
 	today := now.Format(dateLayout)
 	cursor := decodeCursor(record.Cursor)
 	if !cursor.Initialized {
