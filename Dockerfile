@@ -1,5 +1,4 @@
 # syntax=docker/dockerfile:1
-# cache-bust: force frontend rebuild 2026-10-14
 
 FROM --platform=$BUILDPLATFORM node:24-bookworm-slim AS web-builder
 
@@ -10,6 +9,9 @@ COPY web/package.json web/pnpm-lock.yaml ./
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
     pnpm install --frozen-lockfile --store-dir /pnpm/store
 
+# REVISION 变化时强制前端重建 (防止 GHA 缓存复用旧层)
+ARG REVISION=unknown
+RUN echo "building revision $REVISION"
 COPY web/ ./
 RUN pnpm build
 
@@ -61,4 +63,3 @@ LABEL org.opencontainers.image.title="Miyabi" \
       org.opencontainers.image.source="https://github.com/ppxb/miyabi" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.revision="${REVISION}"
-
