@@ -75,35 +75,43 @@
 
 **建议与验收：** 保留错误、加载和重试信息；在状态未知时展示简短错误或禁用依赖该状态的操作。验证首次失败、已有缓存后刷新失败及恢复成功三种情况。
 
-### F05 · P2 · SSE 重连探测请求没有完整的清理与超时生命周期
+### F05 · P2 · SSE 重连探测请求没有完整的清理与超时生命周期（已完成）
 
 **位置：** [task-events.tsx:59](E:/ppxb/miyabi/web/src/features/tasks/task-events.tsx:59)、[task-events.tsx:134](E:/ppxb/miyabi/web/src/features/tasks/task-events.tsx:134)。
 
-重连探测的 AbortController 和五秒计时器只存在于 `restartConnection` 内，effect cleanup 无法取消该请求。fetch 返回响应头后立即清除计时器，再等待 401 响应的 JSON；如果响应体迟迟未结束，五秒期限已经失效，后续重试不会安排。请求抛错时，计时器也没有通过 finally 统一清理。
+**原问题：** 重连探测的 AbortController 和五秒计时器只存在于 `restartConnection` 内，effect cleanup 无法取消该请求。fetch 返回响应头后立即清除计时器，再等待 401 响应的 JSON；如果响应体迟迟未结束，五秒期限已经失效，后续重试不会安排。请求抛错时，计时器也没有通过 finally 统一清理。
 
 **影响：** 手动重连或组件卸载后仍可能保留旧探测请求；慢 401 响应体可以卡住该次自动重连流程。过期探测还可能触发额外的全局认证刷新。
 
-**建议与验收：** 让 effect 管理探测 controller，在 cleanup 中 abort；计时器覆盖读取响应体的全过程并在 finally 清理，异步返回后检查 disposed。用模拟 fetch 验证“先返回 401 响应头、延迟响应体”和“探测期间卸载”，无需浏览器或真实服务。
+**处理结果（2026-10-12）：** effect 统一管理探测 controller 和计时器，手动重连或卸载时取消请求并清理期限；五秒超时覆盖读取 401 正文，超时进入重连重试，不误报登录失效。请求通过 finally 统一释放资源，异步返回后检查取消及 disposed 状态，旧连接的错误和心跳不能重新发起探测。重复断线回调复用当前探测或等待中的重连，保留正常 SSE 长连接、任务快照与认证判断行为。
 
-### F06 · P3 · 同规格按钮重复指定图标间距，产生局部样式漂移
+**验证：** 新增 11 项本地模拟测试，覆盖慢 401 正文、等待响应头或正文时卸载/手动重连、迟到的 401、网络错误的计时器清理、重复断线、旧连接回调及认证分支。前端 30 个测试文件、196 项测试全部通过；TypeScript、目标文件 Lint 与格式检查通过。未执行浏览器测试或真实服务联调。
+
+### F06 · P3 · 同规格按钮重复指定图标间距，产生局部样式漂移（已完成）
 
 **位置：** [button.tsx:26](E:/ppxb/miyabi/web/src/components/ui/button.tsx:26)、[network-section.tsx:135](E:/ppxb/miyabi/web/src/features/settings/network-section.tsx:135)、[emby-section.tsx:262](E:/ppxb/miyabi/web/src/features/settings/emby-section.tsx:262)、[data-section.tsx:92](E:/ppxb/miyabi/web/src/features/settings/data-section.tsx:92)。
 
-`Button size="sm"` 已提供 gap-1。网络和 Emby 的保存按钮又给加载图标增加 `mr-1.5`，使图标与文字间距叠加为 10px；其他同规格按钮通常只使用 4px gap。前两者还使用 14px 图标，其他按钮沿用默认 16px。
+**原问题：** `Button size="sm"` 已提供 gap-1。网络和 Emby 的保存按钮又给加载图标增加 `mr-1.5`，使图标与文字间距叠加为 10px；其他同规格按钮通常只使用 4px gap。前两者还使用 14px 图标，其他按钮沿用默认 16px。
 
 **影响：** 相同操作栏的加载态间距、图标尺寸不一致；调整统一 Button 样式时仍需追踪局部覆盖。
 
-**建议与验收：** 删除无必要的额外 margin，同规格按钮沿用组件默认尺寸。只在确有不同语义或密度需求时使用局部覆盖。此项属于样式整理，适合由用户视觉验收，不必新增锁定 className 的测试。
+**处理结果（2026-10-12）：** 网络和 Emby 设置中的“保存”按钮移除加载图标的 `mr-1.5`，“测试连接”和“保存”图标均移除 `size-3.5`，统一沿用公共 Button 的默认图标尺寸和间距。保留加载动画、点击行为和禁用条件，并移除两个文件中不再需要的 cn 导入。
 
-### F07 · P3 · 通用影片卡片同时承担展示和发现页业务绑定
+**验证：** TypeScript、目标文件 Lint 与格式检查通过；静态核对确认四处图标均沿用公共 Button 样式。未新增样式断言测试，未执行浏览器测试，视觉效果由用户验收。
+
+### F07 · P3 · 通用影片卡片同时承担展示和发现页业务绑定（已完成）
 
 **位置：** [movie-card.tsx:3](E:/ppxb/miyabi/web/src/components/movie/movie-card.tsx:3)、[movie-card.tsx:12](E:/ppxb/miyabi/web/src/components/movie/movie-card.tsx:12)、[movie-card.tsx:34](E:/ppxb/miyabi/web/src/components/movie/movie-card.tsx:34)、[subscriptions/page.tsx:29](E:/ppxb/miyabi/web/src/features/subscriptions/page.tsx:29)。
 
-同一个 components 模块既定义纯展示的 `MovieCard`，又定义绑定详情弹窗、订阅按钮和状态查询的 `DiscoverMovieCard`，形成基础展示层对 feature 的反向依赖。订阅页面还从 `subscription-card.tsx` 导入纯状态判断函数 `isPendingSubscription`。
+**原问题：** 同一个 components 模块既定义纯展示的 `MovieCard`，又定义绑定详情弹窗、订阅按钮和状态查询的 `DiscoverMovieCard`，形成基础展示层对 feature 的反向依赖。订阅页面还从 `subscription-card.tsx` 导入纯状态判断函数 `isPendingSubscription`。
 
 **影响：** 修改展示组件需要同时考虑发现页业务；纯业务规则的使用者和测试也被带入 UI 模块依赖，职责边界不清晰。
 
 **建议与验收：** 将发现页的绑定组件放到对应 feature，保留现有 MovieCard 的 props 组合方式；把纯状态判断放到订阅 feature 的普通 ts 模块。移动后核对导入图和构建，不新增卡片工厂、通用 controller 或多层转发。
+
+**处理结果（2026-10-12）：** `DiscoverMovieCard` 与 `MovieGrid` 移入 features/discover 的 movie-card.tsx、movie-grid.tsx，与 features/library/movie-card.tsx 的既有做法一致；`MovieCard` 的 props 组合方式、`MovieGridLayout` 的网格样式与各调用方渲染结果均未改动，仅把 movie-grid.tsx 改名为 movie-grid-layout.tsx。唯一调用方为 `DiscoverMovieCard` 的 `MovieSubscribeButton` 一并移入 features/discover，components/movie 不再保留发现页独占组件。`isPendingSubscription` 移入 features/subscriptions/subscription-status.ts 普通模块，`SubscriptionCard` 组件文件只保留展示与交互。未新增卡片工厂、通用 controller 或多层转发。
+
+**验证：** 源码检索确认 components 目录不再 import `@/features`，也不再包含发现页独占组件（仅 app-shell.tsx 组装 feature Provider 的既有依赖）；全仓无残留引用。TypeScript、oxlint、oxfmt 检查通过；前端 30 个测试文件、196 项测试全部通过；生产构建通过。未新增测试，未执行浏览器测试，视觉效果由用户验收。
 
 ### F08 · P3 · Popover 组件没有调用者
 
