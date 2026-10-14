@@ -29,3 +29,25 @@ export function useUpdateScrapingSources() {
     }
   })
 }
+
+export type MetaTubePostersSetting = { enabled: boolean }
+const metatubePostersKey = ['settings', 'metatube-posters'] as const
+
+export function useMetaTubePosters() {
+  return useQuery({
+    queryKey: metatubePostersKey,
+    queryFn: ({ signal }) =>
+      apiGet<MetaTubePostersSetting>('/api/settings/metatube-posters', undefined, signal)
+  })
+}
+
+export function useUpdateMetaTubePosters() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (setting: MetaTubePostersSetting) =>
+      apiPut<MetaTubePostersSetting>('/api/settings/metatube-posters', setting),
+    onSuccess: setting => {
+      client.setQueryData(metatubePostersKey, setting)
+    }
+  })
+}

@@ -43,7 +43,8 @@ function RecommendationCard({ movie }: { movie: MovieReference }) {
   const data = detail.movie
   const failed = detail.isError && !detail.isFetching
   const cover = data || failed ? data?.cover || data?.thumbnail || movie.thumbnail : ''
-  const coverKey = JSON.stringify([cover, nsfwMode])
+  const poster = data || failed ? data?.poster : undefined
+  const coverKey = JSON.stringify([poster, cover, nsfwMode])
   const loading = (!data && !failed) || readyCover !== coverKey
   const onCoverReady = useCallback(() => setReadyCover(coverKey), [coverKey])
 
@@ -66,7 +67,8 @@ function RecommendationCard({ movie }: { movie: MovieReference }) {
             movie={{
               code: data?.code ?? movie.code,
               title: data?.title ?? '',
-              cover
+              cover,
+              poster
             }}
             coverLoading="eager"
             onCoverReady={onCoverReady}

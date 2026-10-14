@@ -15,23 +15,24 @@ import (
 )
 
 type Dependencies struct {
-	Logger         *slog.Logger
-	Access         AccessGate
-	Catalogue      CatalogueManager
-	Metadata       MetadataManager
-	Drive          DriveManager
-	Offline        OfflineManager
-	Monitor        SubscriptionManager
-	Library        LibraryManager
-	STRM           STRMRelay
-	Tasks          TaskManager
-	Artwork        ArtworkReader
-	Maintenance    MaintenanceManager
-	Network        NetworkManager
-	Emby           EmbyManager
-	Frontend       fs.FS
-	STRMToken      string
-	TrustedProxies []string
+	Logger          *slog.Logger
+	Access          AccessGate
+	Catalogue       CatalogueManager
+	Metadata        MetadataManager
+	MetaTubePosters MetaTubePostersManager
+	Drive           DriveManager
+	Offline         OfflineManager
+	Monitor         SubscriptionManager
+	Library         LibraryManager
+	STRM            STRMRelay
+	Tasks           TaskManager
+	Artwork         ArtworkReader
+	Maintenance     MaintenanceManager
+	Network         NetworkManager
+	Emby            EmbyManager
+	Frontend        fs.FS
+	STRMToken       string
+	TrustedProxies  []string
 }
 
 // NewRouter requires an Access gate, including when password protection is disabled.
@@ -76,6 +77,8 @@ func NewRouter(deps Dependencies) *gin.Engine {
 	settingsAPI := protected.Group("/settings", noStore())
 	settingsAPI.GET("/scraping", metadataSettingsHandler(deps.Metadata))
 	settingsAPI.PUT("/scraping", metadataUpdateHandler(deps.Metadata))
+	settingsAPI.GET("/metatube-posters", metatubePostersGetHandler(deps.MetaTubePosters))
+	settingsAPI.PUT("/metatube-posters", metatubePostersUpdateHandler(deps.MetaTubePosters))
 	settingsAPI.GET("/system", dataInfoHandler(deps.Maintenance))
 	settingsAPI.DELETE("/cache", dataClearCacheHandler(deps.Maintenance))
 	settingsAPI.GET("/network", networkHandler(deps.Network))

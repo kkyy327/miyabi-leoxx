@@ -59,6 +59,7 @@ export type DiscoverMovie = {
   rating: number
   thumbnail: string
   cover: string
+  poster?: string
   preview_images: PreviewImage[]
   preview_video: string
   magnets_count: number

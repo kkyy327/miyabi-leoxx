@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 
 	"github.com/ppxb/miyabi/internal/database"
 	"github.com/ppxb/miyabi/internal/domain"
@@ -19,7 +21,16 @@ import (
 const (
 	javdbDeviceSetting = "javdb.device_uuid"
 	javdbRouteSetting  = "javdb.route"
+	// metatubePostersSetting toggles MetaTube vertical posters. It is cached
+	// in memory; projections never query the database for it.
+	metatubePostersSetting = "metatube.posters"
 )
+
+// MetaTubePostersSetting controls whether browse/search/detail responses
+// carry MetaTube vertical posters instead of leaving Poster empty.
+type MetaTubePostersSetting struct {
+	Enabled bool `json:"enabled"`
+}
 
 type persistedRoute struct {
 	Host      string `json:"host"`
@@ -43,6 +54,10 @@ type Service struct {
 	persistRouteMu sync.Mutex
 	// Used only to avoid redundant database writes; live state belongs to JavDB.
 	lastSavedRoute persistedRoute
+
+	metatubePublicURL string
+	metatubePostersMu sync.RWMutex
+	metatubePosters   MetaTubePostersSetting
 }
 
 // New creates the lazy JavDB client and restores/persists device UUID and route settings.
@@ -138,6 +153,49 @@ func (service *Service) Close() {
 	}
 }
 
+// ConfigureMetaTube loads the cached poster toggle and records the public
+// MetaTube base URL used to build poster URLs. Call once at startup.
+func (service *Service) ConfigureMetaTube(ctx context.Context, publicURL string) error {
+	setting, _, err := database.LoadSetting[MetaTubePostersSetting](ctx, service.database, metatubePostersSetting)
+	if err != nil {
+		return fmt.Errorf("load MetaTube posters setting: %w", err)
+	}
+	service.metatubePostersMu.Lock()
+	defer service.metatubePostersMu.Unlock()
+	service.metatubePublicURL = publicURL
+	service.metatubePosters = setting
+	return nil
+}
+
+// MetaTubePosters returns the cached poster toggle.
+func (service *Service) MetaTubePosters() MetaTubePostersSetting {
+	service.metatubePostersMu.RLock()
+	defer service.metatubePostersMu.RUnlock()
+	return service.metatubePosters
+}
+
+// UpdateMetaTubePosters persists the toggle and refreshes the cache.
+func (service *Service) UpdateMetaTubePosters(ctx context.Context, setting MetaTubePostersSetting) error {
+	if err := database.SaveSetting(ctx, service.database, metatubePostersSetting, setting); err != nil {
+		return fmt.Errorf("save MetaTube posters setting: %w", err)
+	}
+	service.metatubePostersMu.Lock()
+	defer service.metatubePostersMu.Unlock()
+	service.metatubePosters = setting
+	return nil
+}
+
+// metatubePosterBaseURL returns the MetaTube base URL when posters are
+// enabled, or "" when the feature is off.
+func (service *Service) metatubePosterBaseURL() string {
+	service.metatubePostersMu.RLock()
+	defer service.metatubePostersMu.RUnlock()
+	if !service.metatubePosters.Enabled || service.metatubePublicURL == "" {
+		return ""
+	}
+	return service.metatubePublicURL
+}
+
 func (service *Service) Search(
 	ctx context.Context,
 	keyword string,
@@ -151,7 +209,7 @@ func (service *Service) Search(
 	if err != nil {
 		return nil, fmt.Errorf("search JavDB: %w", err)
 	}
-	return projectMovies(ctx, movies), nil
+	return projectMovies(ctx, movies, service.metatubePosterBaseURL()), nil
 }
 
 func (service *Service) Browse(
@@ -165,7 +223,7 @@ func (service *Service) Browse(
 	if err != nil {
 		return nil, fmt.Errorf("browse JavDB: %w", err)
 	}
-	return projectMovies(ctx, movies), nil
+	return projectMovies(ctx, movies, service.metatubePosterBaseURL()), nil
 }
 
 func (service *Service) CatalogueDetail(ctx context.Context, movieID string) (domain.MovieDetail, error) {
@@ -191,7 +249,7 @@ func (service *Service) MovieDetail(ctx context.Context, movieID string) (MovieD
 	if err != nil {
 		return MovieDetail{}, fmt.Errorf("get JavDB movie detail: %w", err)
 	}
-	projected := projectMovies(ctx, []domain.Movie{movie.Movie})
+	projected := projectMovies(ctx, []domain.Movie{movie.Movie}, service.metatubePosterBaseURL())
 	return MovieDetail{
 		Movie:         projected[0],
 		Zone:          movie.Zone,
@@ -267,6 +325,7 @@ func (service *Service) ResolveMovieID(ctx context.Context, code string) (string
 func projectMovies(
 	ctx context.Context,
 	source []domain.Movie,
+	posterBaseURL string,
 ) []Movie {
 	if len(source) == 0 {
 		return []Movie{}
@@ -290,12 +349,69 @@ func projectMovies(
 				releaseStatus = ReleaseReleased
 			}
 		}
+		if posterBaseURL != "" {
+			// Poster URLs are constructed, never fetched, so list pages stay fast.
+			item.Poster = metatubePosterURL(posterBaseURL, item.Code)
+		}
 		result[index] = Movie{
 			Movie:         item,
 			ReleaseStatus: releaseStatus,
 		}
 	}
 	return result
+}
+
+// metatubePosterURL builds the MetaTube primary-image URL for a release
+// code. Returns "" when the code cannot be mapped to a JAV321 ID.
+func metatubePosterURL(publicURL, code string) string {
+	id := jav321ID(code)
+	if id == "" {
+		return ""
+	}
+	return publicURL + "/v1/images/primary/JAV321/" + url.PathEscape(id) + "?ratio=-1&pos=-1&auto=False&quality=90"
+}
+
+// jav321ID converts a release code (e.g. SSIS-001) to a JAV321 provider ID
+// (e.g. ssis00001): lowercase letters + digits zero-padded to 5.
+// Returns "" for formats JAV321 cannot represent: FC2-XXXXXXX (the FC2
+// prefix contains a digit), pure digits, missing letter prefix, or any
+// code that is not letters followed by digits.
+func jav321ID(code string) string {
+	cleaned := strings.ReplaceAll(strings.TrimSpace(code), " ", "")
+	if cleaned == "" {
+		return ""
+	}
+	prefix, number := "", ""
+	if parts := strings.Split(cleaned, "-"); len(parts) == 2 {
+		prefix, number = parts[0], parts[1]
+	} else if len(parts) == 1 {
+		// No hyphen: split at the first digit.
+		index := strings.IndexFunc(cleaned, unicode.IsDigit)
+		if index < 0 {
+			return ""
+		}
+		prefix, number = cleaned[:index], cleaned[index:]
+	} else {
+		return ""
+	}
+	if prefix == "" || number == "" {
+		return ""
+	}
+	for _, r := range prefix {
+		if !unicode.IsLetter(r) || r > unicode.MaxASCII {
+			return ""
+		}
+	}
+	for _, r := range number {
+		if !unicode.IsDigit(r) {
+			return ""
+		}
+	}
+	padded := number
+	for len(padded) < 5 {
+		padded = "0" + padded
+	}
+	return strings.ToLower(prefix) + padded
 }
 
 func (service *Service) persistActiveRoute(ctx context.Context) error {
