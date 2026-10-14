@@ -59,6 +59,23 @@ func (service *Service) AddActor(ctx context.Context, actorID string, opts AddAc
 			}
 		}
 	}
+	// Browse responses omit actors, so the avatar is usually still empty.
+	// Fall back to one movie detail, which carries full actor info.
+	if (cover == "" || title == "") && len(movies) > 0 {
+		if detail, err := service.discover.CatalogueDetail(ctx, movies[0].ID); err == nil {
+			for _, actor := range detail.Movie.Actors {
+				if actor.ID != actorID {
+					continue
+				}
+				if title == "" {
+					title = actor.Name
+				}
+				if cover == "" {
+					cover = actor.Avatar
+				}
+			}
+		}
+	}
 	if title == "" {
 		title = actorID
 	}
