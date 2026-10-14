@@ -76,7 +76,7 @@ export function ActorSubscriptions({
 
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-6">
-      <div className="flex flex-wrap gap-3">
+      <div className="flex gap-3 overflow-x-auto pb-2 [scrollbar-width:none] [-webkit-overflow-scrolling:touch] [touch-action:pan-x] [&::-webkit-scrollbar]:hidden">
         <Button
           type="button"
           variant={selectedID === null ? 'secondary' : 'outline'}
