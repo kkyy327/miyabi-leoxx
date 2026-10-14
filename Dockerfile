@@ -1,4 +1,5 @@
 # syntax=docker/dockerfile:1
+# cache-bust: force frontend rebuild 2026-10-14
 
 FROM --platform=$BUILDPLATFORM node:24-bookworm-slim AS web-builder
 
@@ -60,3 +61,4 @@ LABEL org.opencontainers.image.title="Miyabi" \
       org.opencontainers.image.source="https://github.com/ppxb/miyabi" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.revision="${REVISION}"
+
