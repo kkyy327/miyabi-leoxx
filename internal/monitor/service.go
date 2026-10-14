@@ -91,6 +91,7 @@ type Discoverer interface {
 	MovieSummary(ctx context.Context, movieID string) (domain.MovieSummary, error)
 	CatalogueMagnets(ctx context.Context, movieID string) ([]domain.Magnet, error)
 	BrowseMovies(ctx context.Context, options domain.BrowseOptions) ([]domain.Movie, error)
+	CatalogueDetail(ctx context.Context, movieID string) (domain.MovieDetail, error)
 }
 
 type OfflineAdder interface {
