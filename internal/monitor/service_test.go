@@ -48,6 +48,10 @@ func (m *mockDiscoverer) BrowseMovies(_ context.Context, options domain.BrowseOp
 	return m.actorMovies[options.EntityID], nil
 }
 
+func (m *mockDiscoverer) CatalogueDetail(_ context.Context, movieID string) (domain.MovieDetail, error) {
+	return domain.MovieDetail{Movie: domain.Movie{ID: movieID, Code: "MOCK-" + movieID}}, nil
+}
+
 type submission struct{ MovieID, Hash string }
 
 type mockOfflineAdder struct {

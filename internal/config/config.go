@@ -13,20 +13,21 @@ import (
 )
 
 type Config struct {
-	Listen         string
-	DataDir        string
-	EmbyDir        string
-	PublicURL      string
-	STRMToken      string
-	LogLevel       slog.Level
-	AccessPassword string
-	JWTSecret      string
-	EmbyEnabled    bool
-	EmbyServerURL  string
-	EmbyAPIKey     string
-	EmbyMediaPath  string
-	EmbySyncActors bool
-	TrustedProxies []string
+	Listen            string
+	DataDir           string
+	EmbyDir           string
+	PublicURL         string
+	MetaTubePublicURL string
+	STRMToken         string
+	LogLevel          slog.Level
+	AccessPassword    string
+	JWTSecret         string
+	EmbyEnabled       bool
+	EmbyServerURL     string
+	EmbyAPIKey        string
+	EmbyMediaPath     string
+	EmbySyncActors    bool
+	TrustedProxies    []string
 }
 
 func Load() (Config, error) {
@@ -47,6 +48,10 @@ func Load() (Config, error) {
 			port = p
 		}
 		publicURL = fmt.Sprintf("http://%s:%s", netx.OutboundIP(), port)
+	}
+	metaTubePublicURL := strings.TrimRight(strings.TrimSpace(os.Getenv("METATUBE_PUBLIC_URL")), "/")
+	if metaTubePublicURL == "" {
+		metaTubePublicURL = "https://miyabi.988726.xyz/metatube"
 	}
 	embyServerURL := strings.TrimRight(strings.TrimSpace(os.Getenv("MIYABI_EMBY_SERVER_URL")), "/")
 	embyAPIKey := strings.TrimSpace(os.Getenv("MIYABI_EMBY_API_KEY"))
@@ -69,20 +74,21 @@ func Load() (Config, error) {
 	}
 
 	cfg := Config{
-		Listen:         listen,
-		DataDir:        dataDir,
-		EmbyDir:        embyDir,
-		PublicURL:      publicURL,
-		STRMToken:      strings.TrimSpace(os.Getenv("MIYABI_STRM_TOKEN")),
-		LogLevel:       logLevel,
-		AccessPassword: os.Getenv("MIYABI_ACCESS_PASSWORD"),
-		JWTSecret:      strings.TrimSpace(os.Getenv("MIYABI_JWT_SECRET")),
-		EmbyEnabled:    embyEnabled,
-		EmbyServerURL:  embyServerURL,
-		EmbyAPIKey:     embyAPIKey,
-		EmbyMediaPath:  embyMediaPath,
-		EmbySyncActors: embySyncActors,
-		TrustedProxies: trustedProxies,
+		Listen:            listen,
+		DataDir:           dataDir,
+		EmbyDir:           embyDir,
+		PublicURL:         publicURL,
+		MetaTubePublicURL: metaTubePublicURL,
+		STRMToken:         strings.TrimSpace(os.Getenv("MIYABI_STRM_TOKEN")),
+		LogLevel:          logLevel,
+		AccessPassword:    os.Getenv("MIYABI_ACCESS_PASSWORD"),
+		JWTSecret:         strings.TrimSpace(os.Getenv("MIYABI_JWT_SECRET")),
+		EmbyEnabled:       embyEnabled,
+		EmbyServerURL:     embyServerURL,
+		EmbyAPIKey:        embyAPIKey,
+		EmbyMediaPath:     embyMediaPath,
+		EmbySyncActors:    embySyncActors,
+		TrustedProxies:    trustedProxies,
 	}
 	if err := cfg.validate(); err != nil {
 		return Config{}, err

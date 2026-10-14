@@ -151,6 +151,7 @@ type Movie struct {
 	Rating        float64           `json:"rating"`
 	Thumbnail     string            `json:"thumbnail"`
 	Cover         string            `json:"cover"`
+	Poster        string            `json:"poster,omitempty"` // MetaTube vertical poster; empty when the feature is off.
 	PreviewImages []PreviewImage    `json:"preview_images"`
 	PreviewVideo  string            `json:"preview_video"`
 	MagnetsCount  int               `json:"magnets_count"`
