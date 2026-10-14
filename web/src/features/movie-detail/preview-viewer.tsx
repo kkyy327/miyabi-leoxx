@@ -31,6 +31,18 @@ import type {
 /** Pointer travel, in pixels, that turns a click into a pan. */
 const DRAG_THRESHOLD = 4
 
+/** Horizontal pointer travel, in pixels, that turns a swipe into a page switch. */
+const SWIPE_THRESHOLD = 60
+
+/** A swipe must be mostly horizontal: vertical travel stays below this share of horizontal. */
+const SWIPE_VERTICAL_RATIO = 0.6
+
+/** A swipe must finish within this long, in milliseconds, to count as a flick. */
+const SWIPE_MAX_DURATION_MS = 1000
+
+/** After a swipe switches the page, ignore clicks for this long so the page switch is not read as "close". */
+const SWIPE_CLICK_GUARD_MS = 500
+
 const PreviewMediaImage = memo(MediaImage)
 
 export function MoviePreviewViewer({
@@ -47,6 +59,8 @@ export function MoviePreviewViewer({
   onClose: () => void
 }) {
   const stripRef = useRef<HTMLDivElement>(null)
+  // Timestamp of the last swipe page-switch, so the click that follows it is not read as "close".
+  const lastSwipeAtRef = useRef(0)
   // Sizes of the frames seen so far: previews of one movie almost always share their dimensions,
   // so seeding the next frame from the previous one avoids a resize flash on every switch.
   const [frameSize, setFrameSize] = useState<Size | null>(null)
@@ -54,6 +68,14 @@ export function MoviePreviewViewer({
   // The detail query can refetch a shorter list while the viewer is open.
   const activeIndex = total === 0 ? 0 : Math.min(index, total - 1)
   const current = images[activeIndex]
+
+  const handleSwipe = useCallback(
+    (direction: -1 | 1, timeStamp: number) => {
+      lastSwipeAtRef.current = timeStamp
+      onIndexChange(stepIndex(activeIndex, total, direction))
+    },
+    [activeIndex, onIndexChange, total]
+  )
 
   // Keep the active thumbnail in view without scrollIntoView, which would move the page as well.
   useEffect(() => {
@@ -101,6 +123,8 @@ export function MoviePreviewViewer({
           image={current}
           initialNatural={frameSize}
           onNaturalSize={setFrameSize}
+          onSwipe={handleSwipe}
+          swipeGuardRef={lastSwipeAtRef}
           onClose={onClose}
         />
 
@@ -146,12 +170,18 @@ function PreviewStage({
   image,
   initialNatural,
   onNaturalSize,
+  onSwipe,
+  swipeGuardRef,
   onClose
 }: {
   image: PreviewImage
   /** Size of the image last shown, so switching frames does not resize the box from scratch. */
   initialNatural: Size | null
   onNaturalSize: (size: Size) => void
+  /** Swipe left = next image, swipe right = previous image. Only fires at fit scale. */
+  onSwipe: (direction: -1 | 1, timeStamp: number) => void
+  /** Timestamp of the last swipe page-switch, used to ignore the click that follows it. */
+  swipeGuardRef: { current: number }
   onClose: () => void
 }) {
   const [view, setView] = useState<ZoomView>(FIT_VIEW)
@@ -162,6 +192,7 @@ function PreviewStage({
   const frameRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef<{ pointerId: number; x: number; y: number } | null>(null)
   const draggedRef = useRef(false)
+  const swipeRef = useRef<{ x: number; y: number; time: number } | null>(null)
 
   const { width: stageWidth, height: stageHeight } = stageSize
   const naturalWidth = naturalSize?.width ?? 0
@@ -217,6 +248,8 @@ function PreviewStage({
 
   const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     draggedRef.current = false
+    // Track every gesture start for swipe detection, even when the image is not pannable.
+    swipeRef.current = { x: event.clientX, y: event.clientY, time: event.timeStamp }
     if (!canPan(viewFrame.current(), base, stageSize) || event.button !== 0) return
     dragRef.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY }
     event.currentTarget.setPointerCapture(event.pointerId)
@@ -237,10 +270,26 @@ function PreviewStage({
 
   const handlePointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
     const drag = dragRef.current
-    if (!drag || drag.pointerId !== event.pointerId) return
-    dragRef.current = null
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId)
+    if (drag && drag.pointerId === event.pointerId) {
+      dragRef.current = null
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId)
+      }
+    }
+    // Horizontal swipe at fit scale switches the page; a zoomed image pans instead.
+    const swipe = swipeRef.current
+    swipeRef.current = null
+    if (
+      swipe &&
+      !draggedRef.current &&
+      viewFrame.current().scale === FIT_SCALE &&
+      event.timeStamp - swipe.time <= SWIPE_MAX_DURATION_MS
+    ) {
+      const dx = event.clientX - swipe.x
+      const dy = event.clientY - swipe.y
+      if (Math.abs(dx) > SWIPE_THRESHOLD && Math.abs(dy) < Math.abs(dx) * SWIPE_VERTICAL_RATIO) {
+        onSwipe(dx < 0 ? 1 : -1, event.timeStamp)
+      }
     }
   }
 
@@ -250,6 +299,8 @@ function PreviewStage({
       draggedRef.current = false
       return
     }
+    // A swipe page-switch ends with a click, which must not be read as "close" either.
+    if (event.timeStamp - swipeGuardRef.current < SWIPE_CLICK_GUARD_MS) return
     if ((event.target as HTMLElement).closest('[data-preview-image]')) return
     onClose()
   }
