@@ -7,6 +7,7 @@ import { useSettingsStore } from '@/stores/settings'
 
 type MediaImageProps = {
   source: string
+  fallback?: string
   original?: string
   loading?: 'eager' | 'lazy'
   blurredBackground?: boolean
@@ -19,7 +20,7 @@ export function MediaImage(props: MediaImageProps) {
   const nsfwMode = useSettingsStore(state => state.nsfwMode)
   return (
     <MediaImageContent
-      key={JSON.stringify([props.source, props.original, nsfwMode])}
+      key={JSON.stringify([props.source, props.fallback, props.original, nsfwMode])}
       {...props}
       concealed={nsfwMode}
     />
@@ -28,6 +29,7 @@ export function MediaImage(props: MediaImageProps) {
 
 function MediaImageContent({
   source,
+  fallback,
   original,
   loading = 'lazy',
   blurredBackground = false,
@@ -37,7 +39,9 @@ function MediaImageContent({
   className
 }: MediaImageProps & { concealed: boolean }) {
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
-  const showImage = !concealed && source.length > 0 && status !== 'error'
+  const [useFallback, setUseFallback] = useState(false)
+  const effectiveSource = useFallback && fallback ? fallback : source
+  const showImage = !concealed && effectiveSource.length > 0 && status !== 'error'
   const ready = !showImage || status === 'ready'
 
   useEffect(() => {
@@ -45,8 +49,11 @@ function MediaImageContent({
   }, [ready, onReady])
 
   const imageProps = {
-    src: imageURL(source),
-    srcSet: original ? `${imageURL(source)} 1x, ${imageURL(original)} 2x` : undefined,
+    src: imageURL(effectiveSource),
+    srcSet:
+      !useFallback && original
+        ? `${imageURL(effectiveSource)} 1x, ${imageURL(original)} 2x`
+        : undefined,
     loading,
     decoding: 'async',
     referrerPolicy: 'no-referrer'
@@ -76,7 +83,13 @@ function MediaImageContent({
                 setStatus('error')
               }
             }}
-            onError={() => setStatus('error')}
+            onError={() => {
+              if (fallback && !useFallback) {
+                setUseFallback(true)
+                return
+              }
+              setStatus('error')
+            }}
           />
         </div>
       ) : null}

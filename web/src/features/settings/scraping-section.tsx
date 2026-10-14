@@ -1,6 +1,12 @@
 import { ScanSearchIcon } from 'lucide-react'
 
-import { sourceNames, useScrapingSources, useUpdateScrapingSources } from '@/api/metadata'
+import {
+  sourceNames,
+  useMetaTubePosters,
+  useScrapingSources,
+  useUpdateMetaTubePosters,
+  useUpdateScrapingSources
+} from '@/api/metadata'
 import { InlineError } from '@/components/error-state'
 import { Switch } from '@/components/ui/switch'
 import { SettingRow, SettingsSection } from './shared'
@@ -16,6 +22,9 @@ export function ScrapingSection() {
   const query = useScrapingSources()
   const update = useUpdateScrapingSources()
   const sources = query.data ?? []
+  const postersQuery = useMetaTubePosters()
+  const updatePosters = useUpdateMetaTubePosters()
+  const postersEnabled = postersQuery.data?.enabled ?? false
   return (
     <SettingsSection icon={<ScanSearchIcon className="size-4" />} title="影片刮削">
       <p className="text-xs text-muted-foreground">
@@ -51,6 +60,30 @@ export function ScrapingSection() {
           retrying={query.isFetching || update.isPending}
         >
           来源设置读取或保存失败，请重试。
+        </InlineError>
+      ) : null}
+      <SettingRow
+        title="MetaTube 竖版海报"
+        description="用 MetaTube 竖版高清海报替换封面，关闭则用 JavDB 横版封面。"
+        inline
+      >
+        <div className="flex items-center gap-2">
+          <Switch
+            checked={postersEnabled}
+            disabled={postersQuery.isPending || updatePosters.isPending}
+            onCheckedChange={enabled => updatePosters.mutate({ enabled })}
+          />
+        </div>
+      </SettingRow>
+      {postersQuery.isError || updatePosters.isError ? (
+        <InlineError
+          onRetry={() => {
+            if (postersQuery.isError) void postersQuery.refetch()
+            else if (updatePosters.variables) updatePosters.mutate(updatePosters.variables)
+          }}
+          retrying={postersQuery.isFetching || updatePosters.isPending}
+        >
+          海报设置读取或保存失败，请重试。
         </InlineError>
       ) : null}
     </SettingsSection>

@@ -15,7 +15,7 @@ export function MovieCard({
   state,
   children
 }: {
-  movie: { code: string; title: string; cover?: string }
+  movie: { code: string; title: string; cover?: string; poster?: string }
   description?: ReactNode
   coverLoading?: 'eager' | 'lazy'
   onCoverReady?: () => void
@@ -25,12 +25,19 @@ export function MovieCard({
   children?: ReactNode
 }) {
   const title = movie.title || movie.code
+  const cover = movie.poster || movie.cover || ''
+  const coverFallback = movie.poster ? movie.cover : undefined
   const heading = <h3 className="truncate text-sm leading-5 font-semibold">{title}</h3>
   return (
     <Card size="sm" className="h-full gap-0 overflow-hidden py-0">
       <div className="relative flex aspect-3/2 items-center justify-center overflow-hidden bg-muted">
         <div className="absolute inset-0">
-          <MovieCover source={movie.cover ?? ''} loading={coverLoading} onReady={onCoverReady} />
+          <MovieCover
+            source={cover}
+            fallback={coverFallback}
+            loading={coverLoading}
+            onReady={onCoverReady}
+          />
         </div>
         <div className="absolute top-2 left-2 flex max-w-[calc(100%-3.5rem)] flex-wrap gap-1.5">
           <Badge variant="frosted" className="max-w-full truncate">
