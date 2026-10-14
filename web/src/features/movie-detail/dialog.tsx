@@ -53,6 +53,26 @@ export function MovieDetailDialogProvider({ children }: PropsWithChildren) {
           }}
         >
           <DialogTitle className="sr-only">影片详情</DialogTitle>
+          {/* 返回按钮: 固定在弹窗左上角, 点了关弹窗 */}
+          <button
+            type="button"
+            aria-label="返回"
+            onClick={() => setOpen(false)}
+            className="absolute top-3 left-3 z-50 flex h-10 w-10 items-center justify-center rounded-full bg-black/60 text-white shadow-lg active:bg-black/80"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="h-5 w-5"
+            >
+              <path d="m15 18-6-6 6-6" />
+            </svg>
+          </button>
           <div
             key={movie && movieDetailKey(movie)}
             className="min-h-0 flex-1 scroll-fade scrollbar-none overflow-y-auto overscroll-contain p-4 sm:p-6 [&::-webkit-scrollbar]:hidden"
