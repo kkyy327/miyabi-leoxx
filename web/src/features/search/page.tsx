@@ -1,8 +1,10 @@
 import { SearchIcon, XIcon } from 'lucide-react'
 import { type FormEvent, useState } from 'react'
 
-import { useSearchMovies } from '@/api/discover'
+import { useDiscoverMovies, useSearchMovies } from '@/api/discover'
 import { AppPage } from '@/components/app-page'
+import { ErrorState } from '@/components/error-state'
+import { MovieGridSkeleton } from '@/components/movie'
 import { PageHeader } from '@/components/page-header'
 import {
   InputGroup,
@@ -11,6 +13,7 @@ import {
   InputGroupInput
 } from '@/components/ui/input-group'
 import { DISCOVER_PAGE_SIZE } from '@/features/discover/constants'
+import { MovieGrid } from '@/features/discover/movie-grid'
 import { DiscoverResults } from '@/features/discover/results'
 
 export function SearchPage({
@@ -35,7 +38,9 @@ export function SearchPage({
           page={page}
           onPageChange={onPageChange}
         />
-      ) : null}
+      ) : (
+        <SearchRankings />
+      )}
     </AppPage>
   )
 }
@@ -85,6 +90,35 @@ function SearchForm({
         ) : null}
       </InputGroup>
     </form>
+  )
+}
+
+function SearchRankings() {
+  return (
+    <div className="flex flex-col gap-8">
+      <RankingSection title="热门影片" sort="hit" />
+      <RankingSection title="最佳榜单" sort="score" />
+    </div>
+  )
+}
+
+function RankingSection({ title, sort }: { title: string; sort: string }) {
+  const movies = useDiscoverMovies({ sort, order: 'desc', page: 1, limit: 10 })
+  return (
+    <section className="flex flex-col gap-4">
+      <h2 className="text-xl font-semibold tracking-normal">{title}</h2>
+      {movies.isError ? (
+        <ErrorState
+          message="数据加载失败，请检查网络或代理设置"
+          onRetry={() => movies.refetch()}
+          retrying={movies.isFetching}
+        />
+      ) : movies.isPending || !movies.data ? (
+        <MovieGridSkeleton count={10} />
+      ) : movies.data.length === 0 ? null : (
+        <MovieGrid movies={movies.data} />
+      )}
+    </section>
   )
 }
 
