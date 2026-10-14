@@ -41,7 +41,7 @@ func BenchmarkMovieProjection(b *testing.B) {
 
 	b.ReportAllocs()
 	for b.Loop() {
-		projected := projectMovies(ctx, movies)
+		projected := projectMovies(ctx, movies, "")
 		benchmarkCatalogueResult = projected
 	}
 }

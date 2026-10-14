@@ -158,7 +158,7 @@ func TestProjectMoviesOmitsInvalidDatesWithoutMutatingCatalogue(t *testing.T) {
 			Title: "Fixture title", ReleaseDate: test.input,
 		}
 	}
-	result := projectMovies(t.Context(), source)
+	result := projectMovies(t.Context(), source, "")
 	if len(result) != len(source) {
 		t.Fatalf("optional dates blocked the page: %#v", result)
 	}
@@ -174,8 +174,70 @@ func TestProjectMoviesOmitsInvalidDatesWithoutMutatingCatalogue(t *testing.T) {
 	}
 }
 
+func TestProjectMoviesMetaTubePoster(t *testing.T) {
+	source := []domain.Movie{
+		{ID: "movie-1", Code: "IPZZ-991", Title: "Fixture"},
+		{ID: "movie-2", Code: "FC2-PPV-4967422", Title: "FC2 fixture"},
+		{ID: "movie-3", Code: "SSIS-001", Title: "Fixture"},
+	}
+	result := projectMovies(t.Context(), source, "https://example.com/metatube")
+	if len(result) != 3 {
+		t.Fatalf("projected %d movies, want 3", len(result))
+	}
+	want := "https://example.com/metatube/v1/images/primary/JAV321/ipzz00991?ratio=-1&pos=-1&auto=False&quality=90"
+	if result[0].Poster != want {
+		t.Errorf("IPZZ-991 poster = %q, want %q", result[0].Poster, want)
+	}
+	if result[1].Poster != "" {
+		t.Errorf("FC2 poster = %q, want empty", result[1].Poster)
+	}
+	if result[2].Poster == "" || !strings.Contains(result[2].Poster, "ssis00001") {
+		t.Errorf("SSIS-001 poster = %q, want JAV321 ssis00001 URL", result[2].Poster)
+	}
+
+	off := projectMovies(t.Context(), source, "")
+	for i, movie := range off {
+		if movie.Poster != "" {
+			t.Errorf("movie %d poster = %q with posters off, want empty", i, movie.Poster)
+		}
+	}
+}
+
+func TestJav321ID(t *testing.T) {
+	cases := []struct {
+		code string
+		want string
+	}{
+		{"SSIS-001", "ssis00001"},
+		{"IPZZ-991", "ipzz00991"},
+		{"MIDE-001", "mide00001"},
+		{"ssis-001", "ssis00001"},
+		{"SSIS001", "ssis00001"},
+		{"SSIS 001", "ssis00001"},
+		{" SSIS-001 ", "ssis00001"},
+		{"ABP-12345", "abp12345"},
+		{"ABP-123456", "abp123456"},
+		{"A-1", "a00001"},
+		{"FC2-4967422", ""},
+		{"FC2-PPV-4967422", ""},
+		{"12345", ""},
+		{"", ""},
+		{"   ", ""},
+		{"-001", ""},
+		{"SSIS-", ""},
+		{"SSIS-00A", ""},
+		{"SS1S-001", ""},
+		{"SSIS-001-2", ""},
+	}
+	for _, test := range cases {
+		if got := jav321ID(test.code); got != test.want {
+			t.Errorf("jav321ID(%q) = %q, want %q", test.code, got, test.want)
+		}
+	}
+}
+
 func TestProjectEmptyMoviesSkipsDatabase(t *testing.T) {
-	result := projectMovies(t.Context(), nil)
+	result := projectMovies(t.Context(), nil, "")
 	if result == nil || len(result) != 0 {
 		t.Fatalf("empty projection = %#v", result)
 	}

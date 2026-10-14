@@ -106,6 +106,12 @@ func New(cfg *config.Config, logger *slog.Logger) (*App, error) {
 		_ = store.Close()
 		return nil, fmt.Errorf("initialize catalogue service: %w", err)
 	}
+	if err := catalogueSvc.ConfigureMetaTube(ctx, cfg.MetaTubePublicURL); err != nil {
+		catalogueSvc.Close()
+		driveSvc.Close()
+		_ = store.Close()
+		return nil, fmt.Errorf("initialize metatube posters: %w", err)
+	}
 	fc2Source := providers.NewFC2(networkSvc.ProxyManager())
 	fanzaSource := providers.NewFANZA(networkSvc.ProxyManager())
 	heyzoSource := providers.NewHEYZO(networkSvc.ProxyManager())
@@ -182,23 +188,24 @@ func New(cfg *config.Config, logger *slog.Logger) (*App, error) {
 	pools := newTaskPools(taskSvc, logger)
 
 	router := api.NewRouter(api.Dependencies{
-		Logger:         logger,
-		Access:         api.NewAccessGateService(cfg.AccessPassword, cfg.JWTSecret),
-		Catalogue:      catalogueSvc,
-		Metadata:       metadataSvc,
-		Drive:          driveSvc,
-		Offline:        offlineSvc,
-		Monitor:        monitorSvc,
-		Library:        libSvc,
-		STRM:           strm.New(store.Client, driveSvc),
-		Tasks:          &taskViews{Service: taskSvc, database: store.Client, library: libSvc, monitor: monitorSvc},
-		Artwork:        scrapeSvc,
-		Maintenance:    maintenanceSvc,
-		Network:        networkSvc,
-		Emby:           embySvc,
-		Frontend:       miyabi.Frontend(),
-		STRMToken:      cfg.STRMToken,
-		TrustedProxies: cfg.TrustedProxies,
+		Logger:          logger,
+		Access:          api.NewAccessGateService(cfg.AccessPassword, cfg.JWTSecret),
+		Catalogue:       catalogueSvc,
+		Metadata:        metadataSvc,
+		MetaTubePosters: catalogueSvc,
+		Drive:           driveSvc,
+		Offline:         offlineSvc,
+		Monitor:         monitorSvc,
+		Library:         libSvc,
+		STRM:            strm.New(store.Client, driveSvc),
+		Tasks:           &taskViews{Service: taskSvc, database: store.Client, library: libSvc, monitor: monitorSvc},
+		Artwork:         scrapeSvc,
+		Maintenance:     maintenanceSvc,
+		Network:         networkSvc,
+		Emby:            embySvc,
+		Frontend:        miyabi.Frontend(),
+		STRMToken:       cfg.STRMToken,
+		TrustedProxies:  cfg.TrustedProxies,
 	})
 
 	server := &http.Server{
