@@ -146,23 +146,52 @@ function SearchResults({
   onPageChange: (page: number) => void
 }) {
   const [sort, setSort] = useState('release')
-  const movies = useSearchMovies({ query: keyword, sort, page, limit: DISCOVER_PAGE_SIZE })
-  // 最新发行时按发行日期从新到旧排序 (搜女优时最新作品排前面; 无日期的放最后)
-  // 热度/评分排序直接用 JavDB 返回的顺序
-  const sorted =
-    sort === 'release' && movies.data
-      ? [...movies.data].sort((a, b) => {
-          const da = a.release_date || ''
-          const db = b.release_date || ''
-          if (da === db) return 0
-          if (!da) return 1
-          if (!db) return -1
-          return db.localeCompare(da)
-        })
-      : movies.data
+  const [year, setYear] = useState('all')
+  const movies = useSearchMovies({ query: keyword, page, limit: DISCOVER_PAGE_SIZE })
+  // 前端本地过滤+排序：JavDB 搜索接口不支持年份筛选/排序参数，自己处理最靠谱
+  const currentYear = new Date().getFullYear()
+  const yearOptions = ['all', ...Array.from({ length: 30 }, (_, i) => String(currentYear - i))]
+  const filtered = movies.data
+    ? movies.data.filter(movie => {
+        if (year === 'all') return true
+        return (movie.release_date || '').startsWith(year)
+      })
+    : movies.data
+  const sorted = filtered
+    ? [...filtered].sort((a, b) => {
+        if (sort === 'score') {
+          return (b.rating || 0) - (a.rating || 0)
+        }
+        if (sort === 'hit') {
+          return (b.magnets_count || 0) - (a.magnets_count || 0)
+        }
+        // 最新发行：按发行日期从新到旧，无日期的放最后
+        const da = a.release_date || ''
+        const db = b.release_date || ''
+        if (da === db) return 0
+        if (!da) return 1
+        if (!db) return -1
+        return db.localeCompare(da)
+      })
+    : filtered
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        <Select value={year} onValueChange={value => setYear(value)}>
+          <SelectTrigger className="w-28">
+            <SelectValue placeholder="年份" />
+          </SelectTrigger>
+          <SelectContent position="popper" align="end">
+            <SelectGroup>
+              <SelectItem value="all">全部年份</SelectItem>
+              {yearOptions.slice(1).map(y => (
+                <SelectItem key={y} value={y}>
+                  {y}年
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
         <Select value={sort} onValueChange={value => setSort(value)}>
           <SelectTrigger className="w-32">
             <SelectValue />
