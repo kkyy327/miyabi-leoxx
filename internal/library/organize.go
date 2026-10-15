@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"log/slog"
 	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/ppxb/miyabi/internal/drive"
 	"github.com/ppxb/miyabi/internal/ent"
-	"github.com/ppxb/miyabi/internal/ent/movie"
 	"github.com/ppxb/miyabi/internal/pan"
 )
 
@@ -230,7 +230,7 @@ func (s *Service) resolveDirID(ctx context.Context, sess drive.Session, dirPath 
 	}
 
 	// Get relative path from root
-	relPath, err := path.Rel(rootPath, dirPath)
+	relPath, err := filepath.Rel(rootPath, dirPath)
 	if err != nil {
 		return "", err
 	}
