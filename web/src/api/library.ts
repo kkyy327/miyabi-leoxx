@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 
-import { apiGet, apiPost } from '@/api/client'
+import { apiDelete, apiGet, apiPost } from '@/api/client'
 import type { DiscoverMovieDetail } from '@/api/discover'
 import { movieStateKeys } from '@/api/movie-states'
 import { refreshQueries } from '@/api/query-refresh'
