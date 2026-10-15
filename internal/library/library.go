@@ -3,6 +3,7 @@ package library
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"entgo.io/ent/dialect/sql"
@@ -172,7 +173,16 @@ func (s *Service) Scan(ctx context.Context, job tasks.Job) error {
 			return s.scanLocal(ctx, job.ID, payload)
 		})
 	}
-	return s.scanner.Run(ctx, job)
+	if err := s.scanner.Run(ctx, job); err != nil {
+		return err
+	}
+	// Clean up junk/ad files after successful scan (best effort, don't fail the scan)
+	if deleted, err := s.CleanupJunkFiles(ctx); err != nil {
+		slog.Warn("junk file cleanup failed", "error", err)
+	} else if deleted > 0 {
+		slog.Info("junk file cleanup completed", "deleted", deleted)
+	}
+	return nil
 }
 
 func (s *Service) Finished(_ context.Context, _ *ent.Tx, job tasks.Job, _ error) (tasks.Change, error) {

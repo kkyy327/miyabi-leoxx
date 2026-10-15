@@ -30,6 +30,8 @@ type Session interface {
 	AddOffline(ctx context.Context, magnet string) (string, error)
 	RemoveOffline(ctx context.Context, hash string) error
 	OfflineTasks(ctx context.Context, page int) (pan.OfflinePage, error)
+	// DeleteFiles moves files to the 115 recycle bin (recoverable for 30 days).
+	DeleteFiles(ctx context.Context, parentID string, fileIDs []string) error
 }
 
 // Open verifies the current mount and authenticated account, returning a Session.
@@ -155,6 +157,23 @@ func (s *sourceSession) OfflineTasks(ctx context.Context, page int) (pan.Offline
 	return withPanToken(ctx, s.drive, state, func(current snapshot) (pan.OfflinePage, error) {
 		return s.drive.client.OfflineTasks(ctx, current.tokens.AccessToken, page)
 	})
+}
+
+func (s *sourceSession) DeleteFiles(ctx context.Context, parentID string, fileIDs []string) error {
+	if len(fileIDs) == 0 {
+		return nil
+	}
+	state, err := s.drive.sourceState(s.source, s.version)
+	if err != nil {
+		return err
+	}
+	_, err = withPanSourceToken(ctx, s.drive, state, func(token string) (struct{}, error) {
+		return struct{}{}, s.drive.client.Delete(ctx, token, parentID, fileIDs)
+	})
+	if err != nil {
+		return err
+	}
+	return s.checkSource()
 }
 
 func (s *sourceSession) Commit(ctx context.Context, fn func(tx *ent.Tx) error) error {
