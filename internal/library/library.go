@@ -182,6 +182,12 @@ func (s *Service) Scan(ctx context.Context, job tasks.Job) error {
 	} else if deleted > 0 {
 		slog.Info("junk file cleanup completed", "deleted", deleted)
 	}
+	// Organize movies into actress folders (best effort, don't fail the scan)
+	if moved, err := s.OrganizeByActress(ctx); err != nil {
+		slog.Warn("organize by actress failed", "error", err)
+	} else if moved > 0 {
+		slog.Info("organize by actress completed", "moved", moved)
+	}
 	return nil
 }
 
