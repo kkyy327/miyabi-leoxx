@@ -115,6 +115,7 @@ export type BrowseMoviesParams = {
 
 export type SearchMoviesParams = {
   query: string
+  sort?: string
   page?: number
   limit?: number
 }
@@ -208,6 +209,7 @@ export function useSearchMovies(params: SearchMoviesParams) {
         '/api/discover/search',
         {
           q: query,
+          sort: params.sort,
           page: params.page,
           limit: params.limit
         },

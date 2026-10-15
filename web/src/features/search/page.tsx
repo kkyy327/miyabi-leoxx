@@ -12,9 +12,23 @@ import {
   InputGroupButton,
   InputGroupInput
 } from '@/components/ui/input-group'
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select'
 import { DISCOVER_PAGE_SIZE } from '@/features/discover/constants'
 import { MovieGrid } from '@/features/discover/movie-grid'
 import { DiscoverResults } from '@/features/discover/results'
+
+const SEARCH_SORT_OPTIONS = [
+  { value: 'release', label: '最新发行' },
+  { value: 'hit', label: '热度' },
+  { value: 'score', label: '评分' }
+]
 
 export function SearchPage({
   keyword,
@@ -131,29 +145,50 @@ function SearchResults({
   page: number
   onPageChange: (page: number) => void
 }) {
-  const movies = useSearchMovies({ query: keyword, page, limit: DISCOVER_PAGE_SIZE })
-  // 按发行日期从新到旧排序 (搜女优时最新作品排前面; 无日期的放最后)
-  const sorted = movies.data
-    ? [...movies.data].sort((a, b) => {
-        const da = a.release_date || ''
-        const db = b.release_date || ''
-        if (da === db) return 0
-        if (!da) return 1
-        if (!db) return -1
-        return db.localeCompare(da)
-      })
-    : movies.data
+  const [sort, setSort] = useState('release')
+  const movies = useSearchMovies({ query: keyword, sort, page, limit: DISCOVER_PAGE_SIZE })
+  // 最新发行时按发行日期从新到旧排序 (搜女优时最新作品排前面; 无日期的放最后)
+  // 热度/评分排序直接用 JavDB 返回的顺序
+  const sorted =
+    sort === 'release' && movies.data
+      ? [...movies.data].sort((a, b) => {
+          const da = a.release_date || ''
+          const db = b.release_date || ''
+          if (da === db) return 0
+          if (!da) return 1
+          if (!db) return -1
+          return db.localeCompare(da)
+        })
+      : movies.data
   return (
-    <DiscoverResults
-      movies={sorted}
-      loading={movies.isPending}
-      fetching={movies.isFetching}
-      error={movies.isError}
-      searching
-      page={page}
-      onPageChange={onPageChange}
-      onRetry={() => movies.refetch()}
-    />
+    <div className="flex flex-col gap-4">
+      <div className="flex justify-end">
+        <Select value={sort} onValueChange={value => setSort(value)}>
+          <SelectTrigger className="w-32">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent position="popper" align="end">
+            <SelectGroup>
+              {SEARCH_SORT_OPTIONS.map(option => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
+      </div>
+      <DiscoverResults
+        movies={sorted}
+        loading={movies.isPending}
+        fetching={movies.isFetching}
+        error={movies.isError}
+        searching
+        page={page}
+        onPageChange={onPageChange}
+        onRetry={() => movies.refetch()}
+      />
+    </div>
   )
 }
 
