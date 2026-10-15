@@ -1,8 +1,8 @@
-import { Ellipsis, PencilIcon, RefreshCwIcon } from 'lucide-react'
+import { Ellipsis, PencilIcon, RefreshCwIcon, Trash2Icon } from 'lucide-react'
 import { useRef, useState } from 'react'
 
 import { describeApiError } from '@/api/client'
-import { useRescrapeLibraryMovie, type LibraryMovie } from '@/api/library'
+import { useDeleteLibraryMovie, useRescrapeLibraryMovie, type LibraryMovie } from '@/api/library'
 import { InlineError } from '@/components/error-state'
 import { Button } from '@/components/ui/button'
 import {
@@ -30,13 +30,16 @@ export function LibraryMovieActions({
   disabled?: boolean
 }) {
   const [correcting, setCorrecting] = useState(false)
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [code, setCode] = useState(movie.code)
   const trigger = useRef<HTMLButtonElement>(null)
   const scrape = useRescrapeLibraryMovie(movie.id)
+  const remove = useDeleteLibraryMovie(movie.id)
   const notifyScan = useNotifyScanTask()
-  const busy = disabled || scrape.isPending
+  const busy = disabled || scrape.isPending || remove.isPending
 
   return (
+    <>
     <Dialog
       open={correcting}
       onOpenChange={open => {
@@ -82,6 +85,13 @@ export function LibraryMovieActions({
           >
             <PencilIcon />
             纠正番号
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            disabled={busy}
+            onSelect={() => setConfirmingDelete(true)}
+          >
+            <Trash2Icon />
+            从媒体库删除
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -134,5 +144,44 @@ export function LibraryMovieActions({
         </form>
       </DialogContent>
     </Dialog>
+    <Dialog
+      open={confirmingDelete}
+      onOpenChange={open => {
+        if (!remove.isPending) setConfirmingDelete(open)
+      }}
+    >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>从媒体库删除</DialogTitle>
+            <DialogDescription>
+              确定要删除「{movie.code}」吗？这会从媒体库中移除该影片及其相关记录，此操作不可撤销。
+            </DialogDescription>
+          </DialogHeader>
+          {remove.error ? <InlineError>{describeApiError(remove.error)}</InlineError> : null}
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={remove.isPending}
+              onClick={() => setConfirmingDelete(false)}
+            >
+              取消
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={remove.isPending}
+              onClick={() =>
+                remove.mutate(undefined, {
+                  onSuccess: () => setConfirmingDelete(false)
+                })
+              }
+            >
+              {remove.isPending ? '删除中…' : '确认删除'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }

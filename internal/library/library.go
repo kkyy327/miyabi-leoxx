@@ -287,3 +287,11 @@ func libraryEntity(id, name *string) *Entity {
 	}
 	return &Entity{ID: domain.ValueOrZero(id), Name: *name}
 }
+
+// DeleteMovie removes a movie and its related records from the library.
+func (s *Service) DeleteMovie(ctx context.Context, id int) error {
+	if err := s.database.Movie.DeleteOneID(id).Exec(ctx); err != nil {
+		return fmt.Errorf("delete movie %d: %w", id, err)
+	}
+	return nil
+}

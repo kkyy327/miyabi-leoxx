@@ -90,6 +90,14 @@ export function useRescrapeLibraryMovie(id: number) {
   })
 }
 
+export function useDeleteLibraryMovie(id: number) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: () => apiDelete<void>(`/api/library/movies/${id}`),
+    onSuccess: () => refreshQueries(queryClient, libraryKeys.all, movieStateKeys.all)
+  })
+}
+
 function cacheScanTask(queryClient: QueryClient, task: ScanTask, previous: Task[] | undefined) {
   const account = queryClient.getQueryData<PanAccountStatus>(panKeys.account)
   if (

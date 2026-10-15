@@ -17,6 +17,23 @@ type LibraryManager interface {
 	StartScan(context.Context) (domain.TaskInfo, error)
 	StartRebuild(context.Context) (domain.TaskInfo, error)
 	RescrapeMovie(context.Context, int, string) (domain.TaskInfo, error)
+	DeleteMovie(context.Context, int) error
+}
+
+func libraryMovieDeleteHandler(library LibraryManager) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		uri, ok := bindURI[struct {
+			ID int `uri:"id" binding:"min=1"`
+		}](c)
+		if !ok {
+			return
+		}
+		if err := library.DeleteMovie(c.Request.Context(), uri.ID); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		c.Status(http.StatusNoContent)
+	}
 }
 
 func libraryMovieScrapeHandler(library LibraryManager) gin.HandlerFunc {
