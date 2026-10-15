@@ -26,7 +26,6 @@ import { DiscoverResults } from '@/features/discover/results'
 
 const SEARCH_SORT_OPTIONS = [
   { value: 'release', label: '最新发行' },
-  { value: 'hit', label: '热度' },
   { value: 'score', label: '评分' }
 ]
 
@@ -146,26 +145,14 @@ function SearchResults({
   onPageChange: (page: number) => void
 }) {
   const [sort, setSort] = useState('release')
-  const [year, setYear] = useState('all')
   const movies = useSearchMovies({ query: keyword, page, limit: DISCOVER_PAGE_SIZE })
-  // 前端本地过滤+排序：JavDB 搜索接口不支持年份筛选/排序参数，自己处理最靠谱
-  const currentYear = new Date().getFullYear()
-  const yearOptions = ['all', ...Array.from({ length: 30 }, (_, i) => String(currentYear - i))]
-  const filtered = movies.data
-    ? movies.data.filter(movie => {
-        if (year === 'all') return true
-        return (movie.release_date || '').startsWith(year)
-      })
-    : movies.data
-  const sorted = filtered
-    ? [...filtered].sort((a, b) => {
+  // 前端本地排序：JavDB 搜索接口不保证按排序参数返回，自己排最靠谱
+  // 默认最新发行从新到旧，无日期的放最后
+  const sorted = movies.data
+    ? [...movies.data].sort((a, b) => {
         if (sort === 'score') {
           return (b.rating || 0) - (a.rating || 0)
         }
-        if (sort === 'hit') {
-          return (b.magnets_count || 0) - (a.magnets_count || 0)
-        }
-        // 最新发行：按发行日期从新到旧，无日期的放最后
         const da = a.release_date || ''
         const db = b.release_date || ''
         if (da === db) return 0
@@ -173,25 +160,10 @@ function SearchResults({
         if (!db) return -1
         return db.localeCompare(da)
       })
-    : filtered
+    : movies.data
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex justify-end gap-2">
-        <Select value={year} onValueChange={value => setYear(value)}>
-          <SelectTrigger className="w-28">
-            <SelectValue placeholder="年份" />
-          </SelectTrigger>
-          <SelectContent position="popper" align="end">
-            <SelectGroup>
-              <SelectItem value="all">全部年份</SelectItem>
-              {yearOptions.slice(1).map(y => (
-                <SelectItem key={y} value={y}>
-                  {y}年
-                </SelectItem>
-              ))}
-            </SelectGroup>
-          </SelectContent>
-        </Select>
+      <div className="flex justify-end">
         <Select value={sort} onValueChange={value => setSort(value)}>
           <SelectTrigger className="w-32">
             <SelectValue />
