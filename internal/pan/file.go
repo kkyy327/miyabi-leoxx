@@ -100,3 +100,27 @@ func SHA1(body []byte) string {
 	sum := sha1.Sum(body)
 	return strings.ToUpper(hex.EncodeToString(sum[:]))
 }
+
+// Delete moves files to the 115 recycle bin (recoverable for 30 days).
+func (client *Client) Delete(ctx context.Context, accessToken, parentID string, fileIDs []string) error {
+	if len(fileIDs) == 0 {
+		return nil
+	}
+	form := map[string]string{"pid": parentID}
+	for i, fid := range fileIDs {
+		form[fmt.Sprintf("fid[%d]", i)] = fid
+	}
+	var result apiResponse
+	_, err := apiRequest[apiResponse](
+		client,
+		client.http.R().SetContext(ctx).SetAuthToken(accessToken).SetFormData(form),
+		http.MethodPost,
+		"https://webapi.115.com/rb/delete",
+		"file delete",
+	)
+	if err != nil {
+		return err
+	}
+	_ = result
+	return nil
+}
