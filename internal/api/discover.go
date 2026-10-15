@@ -28,6 +28,7 @@ type ViewedManager interface {
 
 type discoverSearchQuery struct {
 	Query string `form:"q" binding:"required"`
+	Sort  string `form:"sort,default=release" binding:"oneof=hit release score update want_watch_count watched_count"`
 	Page  int    `form:"page,default=1" binding:"min=1"`
 	Limit int    `form:"limit,default=20" binding:"min=1,max=100"`
 }
@@ -80,6 +81,7 @@ func discoverSearchHandler(discover CatalogueManager) gin.HandlerFunc {
 			return
 		}
 		movies, err := discover.Search(c.Request.Context(), query.Query, domain.SearchOptions{
+			Sort:  query.Sort,
 			Page:  query.Page,
 			Limit: query.Limit,
 		})
