@@ -124,3 +124,54 @@ func (client *Client) Delete(ctx context.Context, accessToken, parentID string, 
 	_ = result
 	return nil
 }
+
+// Move moves files to another directory in 115.
+func (client *Client) Move(ctx context.Context, accessToken, parentID string, fileIDs []string) error {
+	if len(fileIDs) == 0 {
+		return nil
+	}
+	form := map[string]string{"pid": parentID}
+	for i, fid := range fileIDs {
+		form[fmt.Sprintf("fid[%d]", i)] = fid
+	}
+	var result apiResponse
+	_, err := apiRequest[apiResponse](
+		client,
+		client.http.R().SetContext(ctx).SetAuthToken(accessToken).SetFormData(form),
+		http.MethodPost,
+		"https://webapi.115.com/rb/move",
+		"file move",
+	)
+	if err != nil {
+		return err
+	}
+	_ = result
+	return nil
+}
+
+// Mkdir creates a directory in 115 and returns its ID.
+func (client *Client) Mkdir(ctx context.Context, accessToken, parentID, name string) (string, error) {
+	form := map[string]string{
+		"pid":   parentID,
+		"cname": name,
+	}
+	type mkdirResponse struct {
+		apiResponse
+		FileID string `json:"file_id"`
+		FileName string `json:"file_name"`
+	}
+	result, err := apiRequest[mkdirResponse](
+		client,
+		client.http.R().SetContext(ctx).SetAuthToken(accessToken).SetFormData(form),
+		http.MethodPost,
+		"https://webapi.115.com/files/add",
+		"mkdir",
+	)
+	if err != nil {
+		return "", err
+	}
+	if result.FileID == "" {
+		return "", fmt.Errorf("mkdir returned empty file_id")
+	}
+	return result.FileID, nil
+}

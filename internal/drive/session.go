@@ -32,6 +32,10 @@ type Session interface {
 	OfflineTasks(ctx context.Context, page int) (pan.OfflinePage, error)
 	// DeleteFiles moves files to the 115 recycle bin (recoverable for 30 days).
 	DeleteFiles(ctx context.Context, parentID string, fileIDs []string) error
+	// MoveFiles moves files to another directory in 115.
+	MoveFiles(ctx context.Context, parentID string, fileIDs []string) error
+	// CreateDirectory creates a subdirectory in 115 and returns its ID.
+	CreateDirectory(ctx context.Context, parentID, name string) (string, error)
 }
 
 // Open verifies the current mount and authenticated account, returning a Session.
@@ -174,6 +178,40 @@ func (s *sourceSession) DeleteFiles(ctx context.Context, parentID string, fileID
 		return err
 	}
 	return s.checkSource()
+}
+
+func (s *sourceSession) MoveFiles(ctx context.Context, parentID string, fileIDs []string) error {
+	if len(fileIDs) == 0 {
+		return nil
+	}
+	state, err := s.drive.sourceState(s.source, s.version)
+	if err != nil {
+		return err
+	}
+	_, err = withPanSourceToken(ctx, s.drive, state, func(token string) (struct{}, error) {
+		return struct{}{}, s.drive.client.Move(ctx, token, parentID, fileIDs)
+	})
+	if err != nil {
+		return err
+	}
+	return s.checkSource()
+}
+
+func (s *sourceSession) CreateDirectory(ctx context.Context, parentID, name string) (string, error) {
+	state, err := s.drive.sourceState(s.source, s.version)
+	if err != nil {
+		return "", err
+	}
+	dirID, err := withPanSourceToken(ctx, s.drive, state, func(token string) (string, error) {
+		return s.drive.client.Mkdir(ctx, token, parentID, name)
+	})
+	if err != nil {
+		return "", err
+	}
+	if err := s.checkSource(); err != nil {
+		return "", err
+	}
+	return dirID, nil
 }
 
 func (s *sourceSession) Commit(ctx context.Context, fn func(tx *ent.Tx) error) error {

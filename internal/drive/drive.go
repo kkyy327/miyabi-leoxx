@@ -37,6 +37,8 @@ type Client interface {
 	DownloadURL(context.Context, string, string, string) (string, error)
 	OpenMedia(context.Context, string, string, http.Header) (*http.Response, error)
 	Delete(context.Context, string, string, []string) error
+	Move(context.Context, string, string, []string) error
+	Mkdir(context.Context, string, string, string) (string, error)
 }
 
 type mountRecord struct {
