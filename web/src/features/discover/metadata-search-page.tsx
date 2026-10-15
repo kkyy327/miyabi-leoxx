@@ -44,12 +44,29 @@ export function MetadataSearchPage({
     ...metadataBrowseParams(search)
   })
 
+  // 从影片列表中提取当前演员的头像
+  const actorAvatar =
+    search.kind === 'actor'
+      ? movies.data
+          ?.flatMap(movie => movie.actors ?? [])
+          .find(actor => actor.id === search.id)?.avatar
+      : undefined
+
   return (
     <AppPage>
       <PageBackButton />
       <PageHeader title={search.name} description={`${METADATA_LABELS[search.kind]}相关影片`}>
         {search.kind === 'actor' ? (
-          <ActorSubscribeButton actorID={search.id} actorName={search.name} />
+          <div className="flex items-center gap-3">
+            {actorAvatar ? (
+              <img
+                src={actorAvatar}
+                alt={search.name}
+                className="h-12 w-12 rounded-full object-cover"
+              />
+            ) : null}
+            <ActorSubscribeButton actorID={search.id} actorName={search.name} />
+          </div>
         ) : null}
         {search.kind === 'tag' ? (
           <Select
