@@ -30,7 +30,7 @@ export function MovieCard({
   const heading = <h3 className="truncate text-sm leading-5 font-semibold">{title}</h3>
   return (
     <Card size="sm" className="h-full gap-0 overflow-hidden py-0">
-      <div className="relative flex aspect-3/2 items-center justify-center overflow-hidden bg-muted">
+      <div className="relative flex aspect-2/3 items-center justify-center overflow-hidden bg-muted">
         <div className="absolute inset-0">
           <MovieCover
             source={cover}
