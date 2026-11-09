@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 
 import { MovieCover } from '@/components/movie/movie-cover'
+import { useSettingsStore } from '@/stores/settings'
 import { OverflowTooltip } from '@/components/overflow-tooltip'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
@@ -24,13 +25,26 @@ export function MovieCard({
   state?: ReactNode
   children?: ReactNode
 }) {
+  const coverStyle = useSettingsStore(state => state.coverStyle)
   const title = movie.title || movie.code
-  const cover = movie.poster || movie.cover || ''
-  const coverFallback = movie.poster ? movie.cover : undefined
+  const cover =
+    coverStyle === 'poster'
+      ? movie.poster || movie.cover || ''
+      : movie.cover || movie.poster || ''
+  const coverFallback =
+    coverStyle === 'poster'
+      ? movie.poster
+        ? movie.cover
+        : undefined
+      : movie.cover
+        ? movie.poster
+        : undefined
   const heading = <h3 className="truncate text-sm leading-5 font-semibold">{title}</h3>
   return (
     <Card size="sm" className="h-full gap-0 overflow-hidden py-0">
-      <div className="relative flex aspect-2/3 items-center justify-center overflow-hidden bg-muted">
+      <div
+        className={`relative flex ${coverStyle === 'poster' ? 'aspect-2/3' : 'aspect-3/2'} items-center justify-center overflow-hidden bg-muted`}
+      >
         <div className="absolute inset-0">
           <MovieCover
             source={cover}
